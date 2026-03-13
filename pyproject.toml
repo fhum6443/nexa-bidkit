@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "nexa-bidkit"
+version = "0.1.0"
+description = "Day-ahead and intraday auction bid generation for European power markets"
+authors = []
+readme = "README.md"
+license = "MIT"
+packages = [{ include = "nexa_bidkit", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.0"
+pandas = "^2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-cov = "^6.0"
+hypothesis = "^6.0"
+mypy = "^1.0"
+ruff = "^0.9"
+pandas-stubs = "^3.0.0.260204"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=nexa_bidkit --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src"]

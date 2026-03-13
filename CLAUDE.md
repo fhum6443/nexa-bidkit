@@ -1,0 +1,74 @@
+# nexa-bidkit
+
+## What this is
+A Python library for generating day-ahead and intraday auction bids
+for European power markets. EUPHEMIA-compatible output formats.
+Part of the Phase Nexa ecosystem.
+
+## Audience
+Quants, data scientists, and developers at energy trading companies who build their own trading systems. They are experienced Python users.
+
+## Code style
+- Python 3.11+
+- Type hints everywhere, strict mypy compliance
+- Pydantic v2 for data models
+- pytest for testing
+- Ruff for linting and formatting
+- No classes where a function will do
+- Docstrings on all public API (Google style)
+- Tabular numerical data uses pandas DataFrames
+- Timezone-aware datetimes only (never naive)
+- Utilise the Makefile for common developer actions
+- Always prefer UK English unless using existing nomenclature popular in energy trading
+
+## Domain context
+- MTU = Market Time Unit. EU power markets transitioned to 15-minute
+  MTUs on 30 Sept 2025. Library must handle both 15-min and hourly.
+- EUPHEMIA = the algorithm used for day-ahead market coupling in Europe.
+  Bid formats must be compatible with EUPHEMIA input requirements.
+- Bid types: simple hourly bids (price-quantity pairs per MTU),
+  block bids (fixed price/volume across consecutive MTUs),
+  linked block bids (parent-child relationships),
+  exclusive groups (mutually exclusive block bids).
+- Bidding zones: e.g. NO1-NO5 (Nordic), DE-LU, FR, etc.
+
+## Testing
+- pytest with fixtures for common bid scenarios
+- Property-based testing with hypothesis for curve construction
+- All monetary values use Decimal, not float
+- Aim for high test coverage
+- Run `make test` to run unit tests
+
+## Do not
+- Do not use float for prices or volumes. Use Decimal.
+- Do not create naive datetimes. Always use timezone-aware.
+- Do not add unnecessary dependencies.
+
+## Code layout
+
+```
+nexa-bidkit/
+  src/nexa_bidkit/
+    __init__.py
+    curves.py          # merit order curve construction
+    bids.py            # bid objects (hourly, block, linked, exclusive)
+    orders.py          # order book / portfolio of bids
+    euphemia.py        # EUPHEMIA-compatible output formats
+    validation.py      # bid validation rules
+    types.py           # core types/enums (MTU, BiddingZone, etc.)
+  tests/
+  docs/
+  examples/
+  pyproject.toml
+  CLAUDE.md
+  README.md
+  ```
+
+  Use pyproject.toml with hatchling or setuptools as the build backend. Don't use setup.py in 2026.
+
+  ## Definition of Done
+
+  - Update tests to include new/changed work, aim for >80% code coverage, but prioritise good tests
+  - Run tests and ensure they pass
+  - Linters (like black or mypy) show no issues
+  - Update README and/or docs to document the new behaviour/feature
