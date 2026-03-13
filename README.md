@@ -1,6 +1,6 @@
 # nexa-bidkit
 
-[![CI](https://github.com/phasenexa/nexa-bidkit/actions/workflows/ci.yml/badge.svg)](https://github.com/phasenexa/nexa-bidkit/actions/workflows/ci.yml)
+[![CI](https://github.com/phasenexa/nexa-bidkit/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/phasenexa/nexa-bidkit/actions/workflows/ci.yml)
 
 A Python library for generating day-ahead and intraday auction bids for European power markets. EUPHEMIA-compatible output formats.
 
