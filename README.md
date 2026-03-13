@@ -158,6 +158,51 @@ print(f"Must-run is indivisible: {must_run.is_indivisible}")
 print(f"Exclusive group has {options.member_count} options")
 ```
 
+### Managing portfolios with OrderBook
+
+```python
+from nexa_bidkit import (
+    create_order_book,
+    add_bid,
+    add_bids,
+    get_bids_by_zone,
+    get_bids_by_status,
+    count_bids,
+    total_volume_by_zone,
+    update_all_statuses,
+    orders_to_dataframe,
+    BidStatus,
+)
+
+# Create an order book
+book = create_order_book()
+
+# Add individual bids
+book = add_bid(book, must_run)
+book = add_bid(book, peak_bid)
+
+# Add multiple bids at once
+book = add_bids(book, [ramp_up, options])
+
+# Query bids
+no1_bids = get_bids_by_zone(book, BiddingZone.NO1)
+draft_bids = get_bids_by_status(book, BidStatus.DRAFT)
+
+# Aggregate statistics
+bid_counts = count_bids(book)
+volumes = total_volume_by_zone(book)
+
+print(f"Total bids: {sum(bid_counts.values())}")
+print(f"NO1 volume: {volumes[BiddingZone.NO1]} MW")
+
+# Update statuses (e.g., after validation)
+book = update_all_statuses(book, BidStatus.VALIDATED)
+
+# Export to pandas for analysis
+df = orders_to_dataframe(book)
+print(df[["bid_id", "bid_type", "bidding_zone", "status"]])
+```
+
 ## Core Concepts
 
 ### Market Time Units (MTU)
