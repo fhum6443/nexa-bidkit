@@ -254,6 +254,135 @@ The validation module enforces:
 - **Temporal constraints**: Gate closure deadlines, delivery periods within auction day
 - **Portfolio limits**: Total volume sanity checks across bidding zones
 
+### Submitting to Nord Pool
+
+The `nordpool` module converts your bids into Nord Pool Auction API request payloads.
+Because Nord Pool contract IDs (e.g. `"NO1-14"`) depend on Nord Pool's products API,
+you supply a `ContractIdResolver` callable to perform that mapping.
+
+#### Curve order from a SimpleBid
+
+```python
+from nexa_bidkit.nordpool import simple_bid_to_curve_order
+from nexa_bidkit import (
+    BiddingZone, CurveType, Direction, MTUDuration, MTUInterval,
+    PriceQuantityCurve, PriceQuantityStep, SimpleBid,
+)
+from decimal import Decimal
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+mtu = MTUInterval.from_start(
+    datetime(2026, 4, 1, 13, 0, tzinfo=ZoneInfo("Europe/Oslo")),
+    MTUDuration.HOURLY,
+)
+
+curve = PriceQuantityCurve(
+    curve_type=CurveType.SUPPLY,
+    steps=[
+        PriceQuantityStep(price=Decimal("10.00"), volume=Decimal("50")),
+        PriceQuantityStep(price=Decimal("20.00"), volume=Decimal("100")),
+    ],
+    mtu=mtu,
+)
+
+bid = SimpleBid(
+    bid_id="simple-1",
+    bidding_zone=BiddingZone.NO1,
+    direction=Direction.SELL,
+    curve=curve,
+)
+
+# Your resolver maps (MTUInterval, BiddingZone) → Nord Pool contract ID.
+# Call Nord Pool's products API to populate this lookup at runtime.
+def resolve_contract(mtu, zone):
+    hour = mtu.start.hour
+    return f"{zone.value}-{hour}"
+
+payload = simple_bid_to_curve_order(
+    bid,
+    auction_id="DA-2026-04-01",
+    portfolio="my-portfolio",
+    contract_id_resolver=resolve_contract,
+)
+
+# Serialise to JSON for the Nord Pool API (uses camelCase aliases)
+print(payload.model_dump(by_alias=True))
+# {
+#   "auctionId": "DA-2026-04-01",
+#   "portfolio": "my-portfolio",
+#   "areaCode": "NO1",
+#   "comment": null,
+#   "curves": [{"contractId": "NO1-13", "curvePoints": [...]}]
+# }
+```
+
+#### Block and linked block orders
+
+```python
+from nexa_bidkit.nordpool import block_bid_to_block_list, linked_block_bid_to_block_list
+from nexa_bidkit import (
+    BiddingZone, DeliveryPeriod, Direction, MTUDuration,
+    block_bid, linked_block_bid,
+)
+from decimal import Decimal
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+tz = ZoneInfo("Europe/Oslo")
+delivery = DeliveryPeriod(
+    start=datetime(2026, 4, 1, 10, 0, tzinfo=tz),
+    end=datetime(2026, 4, 1, 14, 0, tzinfo=tz),
+    duration=MTUDuration.HOURLY,
+)
+
+must_run = block_bid(
+    bidding_zone=BiddingZone.NO1,
+    direction=Direction.SELL,
+    delivery_period=delivery,
+    price=Decimal("25.0"),
+    volume=Decimal("50"),
+    bid_id="must-run",
+)
+
+ramp_up = linked_block_bid(
+    parent_bid_id=must_run.bid_id,
+    bidding_zone=BiddingZone.NO1,
+    direction=Direction.SELL,
+    delivery_period=delivery,
+    price=Decimal("35.0"),
+    volume=Decimal("25"),
+)
+
+block_payload  = block_bid_to_block_list(must_run, "DA-2026-04-01", "my-portfolio", resolve_contract)
+linked_payload = linked_block_bid_to_block_list(ramp_up, "DA-2026-04-01", "my-portfolio", resolve_contract)
+
+# The linked block payload carries the parent reference
+print(linked_payload.blocks[0].linked_to)  # "must-run"
+```
+
+#### Converting a whole OrderBook at once
+
+```python
+from nexa_bidkit.nordpool import order_book_to_nord_pool
+from nexa_bidkit import create_order_book, add_bids
+
+book = create_order_book()
+book = add_bids(book, [must_run, ramp_up])
+
+submission = order_book_to_nord_pool(
+    book,
+    auction_id="DA-2026-04-01",
+    portfolio="my-portfolio",
+    contract_id_resolver=resolve_contract,
+)
+
+print(f"Curve orders:        {len(submission.curve_orders)}")
+print(f"Block orders:        {len(submission.block_orders)}")
+print(f"Linked block orders: {len(submission.linked_block_orders)}")
+print(f"Exclusive groups:    {len(submission.exclusive_group_orders)}")
+```
+
 ## Core Concepts
 
 ### Market Time Units (MTU)

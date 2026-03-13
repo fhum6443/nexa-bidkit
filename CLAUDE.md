@@ -78,8 +78,10 @@ Quants, data scientists, and developers at energy trading companies who build th
 nexa-bidkit/
   src/nexa_bidkit/
     __init__.py
-    curves.py          # merit order curve construction
     bids.py            # bid objects (hourly, block, linked, exclusive)
+    curves.py          # merit order curve construction
+    epex_spot.py       # Convert your orders to EPEX Spot domain model
+    nordpool.py        # Convert your orders to Nord Pool domain model
     orders.py          # order book / portfolio of bids
     validation.py      # bid validation rules
     types.py           # core types/enums (MTU, BiddingZone, etc.)
