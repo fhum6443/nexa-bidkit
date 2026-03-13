@@ -7,6 +7,7 @@ import pytest
 
 from nexa_bidkit.bids import (
     BlockBid,
+    ExclusiveGroupBid,
     LinkedBlockBid,
     SimpleBid,
     block_bid,
@@ -226,6 +227,17 @@ def test_validate_price_step_increments_allows_equal_prices(sample_mtu: MTUInter
     validate_price_step_increments(curve)  # Should not raise
 
 
+def test_validate_price_step_increments_single_step_passes(sample_mtu: MTUInterval):
+    """Single-step curve passes validation (no consecutive pairs to compare)."""
+    curve = PriceQuantityCurve(
+        curve_type=CurveType.SUPPLY,
+        steps=[step("10.0", "50")],
+        mtu=sample_mtu,
+    )
+
+    validate_price_step_increments(curve)  # Should not raise
+
+
 def test_validate_price_quantity_curve_comprehensive(valid_supply_curve: PriceQuantityCurve):
     """Comprehensive curve validation passes for valid curve."""
     validate_price_quantity_curve(valid_supply_curve)
@@ -404,6 +416,28 @@ def test_validate_gate_closure_requires_timezone_aware():
         validate_gate_closure(naive_dt, aware_dt)
 
 
+def test_validate_delivery_within_day_requires_timezone_aware_auction_day():
+    """validate_delivery_within_day raises ValueError for naive auction_day."""
+    period = DeliveryPeriod(
+        start=AUCTION_DAY + timedelta(hours=10),
+        end=AUCTION_DAY + timedelta(hours=14),
+        duration=MTUDuration.QUARTER_HOURLY,
+    )
+    naive_day = datetime(2026, 4, 1, 0, 0, 0)  # No timezone
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        validate_delivery_within_day(period, naive_day)
+
+
+def test_validate_mtu_within_day_requires_timezone_aware_auction_day():
+    """validate_mtu_within_day raises ValueError for naive auction_day."""
+    mtu = quarter_interval(AUCTION_DAY + timedelta(hours=12))
+    naive_day = datetime(2026, 4, 1, 0, 0, 0)  # No timezone
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        validate_mtu_within_day(mtu, naive_day)
+
+
 # ---------------------------------------------------------------------------
 # Test: MTU resolution validation
 # ---------------------------------------------------------------------------
@@ -498,6 +532,29 @@ def test_validate_exclusive_group_volumes_fails_one_dominates(
         validate_exclusive_group_volumes(group)
 
 
+def test_validate_exclusive_group_volumes_single_bid_skips_check(
+    sample_delivery_period: DeliveryPeriod,
+):
+    """validate_exclusive_group_volumes skips check when fewer than 2 bids."""
+    single_block = block_bid(
+        bidding_zone=BiddingZone.NO1,
+        direction=Direction.SELL,
+        delivery_period=sample_delivery_period,
+        price=Decimal("50.0"),
+        volume=Decimal("100.0"),
+        bid_id="single-block",
+    )
+    # Bypass Pydantic validation to create a single-bid group (edge case guard)
+    group = ExclusiveGroupBid.model_construct(
+        group_id="test-group",
+        bidding_zone=BiddingZone.NO1,
+        direction=Direction.SELL,
+        block_bids=[single_block],
+    )
+
+    validate_exclusive_group_volumes(group)  # Should not raise
+
+
 def test_validate_exclusive_group_bid_comprehensive(sample_delivery_period: DeliveryPeriod):
     """Comprehensive exclusive group validation passes for valid group."""
     blocks = [
@@ -534,6 +591,39 @@ def test_validate_bid_raises_for_unknown_type():
 
     with pytest.raises(ValueError, match="Unknown bid type"):
         validate_bid(FakeBid())  # type: ignore
+
+
+def test_validate_bid_dispatches_linked_block_bid(sample_delivery_period: DeliveryPeriod):
+    """validate_bid dispatches to validate_linked_block_bid for LinkedBlockBid."""
+    linked = LinkedBlockBid(
+        bid_id="linked-dispatch",
+        bidding_zone=BiddingZone.NO1,
+        direction=Direction.SELL,
+        delivery_period=sample_delivery_period,
+        price=Decimal("45.0"),
+        volume=Decimal("50.0"),
+        parent_bid_id="parent-dispatch",
+    )
+
+    validate_bid(linked)  # Should not raise
+
+
+def test_validate_bid_dispatches_exclusive_group_bid(sample_delivery_period: DeliveryPeriod):
+    """validate_bid dispatches to validate_exclusive_group_bid for ExclusiveGroupBid."""
+    blocks = [
+        block_bid(
+            bidding_zone=BiddingZone.NO1,
+            direction=Direction.SELL,
+            delivery_period=sample_delivery_period,
+            price=Decimal(str(50 + i * 10)),
+            volume=Decimal("100.0"),
+            bid_id=f"block-dispatch-{i}",
+        )
+        for i in range(2)
+    ]
+    group = exclusive_group(blocks)
+
+    validate_bid(group)  # Should not raise
 
 
 # ---------------------------------------------------------------------------
@@ -589,6 +679,17 @@ def test_validate_order_book_for_submission_passes(valid_simple_bid: SimpleBid):
     gate_closure = AUCTION_DAY - timedelta(hours=1)
 
     validate_order_book_for_submission(order_book, gate_closure, submission_time)
+
+
+def test_validate_order_book_for_submission_defaults_submission_time(
+    valid_simple_bid: SimpleBid,
+):
+    """validate_order_book_for_submission uses current UTC time when submission_time is None."""
+    order_book = create_order_book(bids=[valid_simple_bid])
+    future_gate_closure = datetime.now(UTC) + timedelta(hours=1)
+
+    # Should not raise — current time is before the future gate closure
+    validate_order_book_for_submission(order_book, future_gate_closure)
 
 
 def test_validate_order_book_for_submission_fails_after_gate_closure(
