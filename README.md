@@ -486,16 +486,21 @@ The pipeline validates, runs CI, builds, publishes to TestPyPI, then (after huma
 ### Publishing a beta release
 
 ```bash
-# 1. Bump the version in pyproject.toml
+# 1. Create a version bump branch (main is protected — never push directly)
+git checkout main && git pull
+git checkout -b chore/bump-version-to-1.0.0b1
+
+# 2. Bump the version in pyproject.toml
 make bump version=1.0.0b1
 
-# 2. Commit and push
+# 3. Commit, push, and open a PR
 git add pyproject.toml
 git commit -m "chore: bump version to 1.0.0b1"
-git push
+git push -u origin chore/bump-version-to-1.0.0b1
+gh pr create --title "chore: bump version to 1.0.0b1" --body "Version bump for beta release."
 
-# 3. On GitHub: create a new Release
-#    - Tag: v1.0.0b1
+# 4. Merge the PR into main, then on GitHub create a new Release
+#    - Tag: v1.0.0b1  (target: main)
 #    - Check "This is a pre-release"
 #    - Publish release
 ```
@@ -503,16 +508,21 @@ git push
 ### Publishing a stable release
 
 ```bash
-# 1. Bump the version in pyproject.toml
+# 1. Create a version bump branch (main is protected — never push directly)
+git checkout main && git pull
+git checkout -b chore/bump-version-to-1.0.0
+
+# 2. Bump the version in pyproject.toml
 make bump version=1.0.0
 
-# 2. Commit and push
+# 3. Commit, push, and open a PR
 git add pyproject.toml
 git commit -m "chore: bump version to 1.0.0"
-git push
+git push -u origin chore/bump-version-to-1.0.0
+gh pr create --title "chore: bump version to 1.0.0" --body "Version bump for stable release."
 
-# 3. On GitHub: create a new Release
-#    - Tag: v1.0.0
+# 4. Merge the PR into main, then on GitHub create a new Release
+#    - Tag: v1.0.0  (target: main)
 #    - Do NOT check "This is a pre-release"
 #    - Publish release
 ```
