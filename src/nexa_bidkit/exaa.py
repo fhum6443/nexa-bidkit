@@ -434,9 +434,7 @@ def order_book_to_exaa(
             blocks.append(block_bid_to_exaa_product(bid, product_id))
 
     hourly_container = (
-        ExaaProductTypeContainer.model_validate(
-            {"typeOfOrder": order_type, "products": hourly}
-        )
+        ExaaProductTypeContainer.model_validate({"typeOfOrder": order_type, "products": hourly})
         if hourly
         else None
     )
@@ -448,9 +446,7 @@ def order_book_to_exaa(
         else None
     )
     block_container = (
-        ExaaProductTypeContainer.model_validate(
-            {"typeOfOrder": order_type, "products": blocks}
-        )
+        ExaaProductTypeContainer.model_validate({"typeOfOrder": order_type, "products": blocks})
         if blocks
         else None
     )

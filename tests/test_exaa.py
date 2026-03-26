@@ -79,9 +79,7 @@ def _demand_curve(start: datetime = T0) -> PriceQuantityCurve:
     )
 
 
-def _simple_sell_bid(
-    start: datetime = T0, duration: MTUDuration = MTUDuration.HOURLY
-) -> SimpleBid:
+def _simple_sell_bid(start: datetime = T0, duration: MTUDuration = MTUDuration.HOURLY) -> SimpleBid:
     return SimpleBid(
         bid_id="simple-sell-1",
         bidding_zone=BiddingZone.AT,
@@ -337,9 +335,7 @@ class TestOrderBookToExaa:
     def test_block_bids_go_to_block_container(self) -> None:
         ob = create_order_book()
         ob = add_bid(ob, _block_sell_bid())
-        result = order_book_to_exaa(
-            ob, ACCOUNT_ID, _product_id_resolver, _block_product_resolver
-        )
+        result = order_book_to_exaa(ob, ACCOUNT_ID, _product_id_resolver, _block_product_resolver)
         assert result.orders[0].block_products is not None
         assert len(result.orders[0].block_products.products) == 1
 
@@ -423,9 +419,7 @@ class TestOrderBookToExaa:
         ob = add_bid(ob, hourly_bid)
         ob = add_bid(ob, qh_bid)
         ob = add_bid(ob, _block_sell_bid())
-        result = order_book_to_exaa(
-            ob, ACCOUNT_ID, _product_id_resolver, _block_product_resolver
-        )
+        result = order_book_to_exaa(ob, ACCOUNT_ID, _product_id_resolver, _block_product_resolver)
         assert result.orders[0].hourly_products is not None
         assert len(result.orders[0].hourly_products.products) == 1
         assert result.orders[0].fifteen_min_products is not None
