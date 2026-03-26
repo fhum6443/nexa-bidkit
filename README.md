@@ -249,6 +249,7 @@ except ValidationError as e:
 ```
 
 The validation module enforces:
+
 - **EUPHEMIA rules**: Maximum curve steps (200), block duration limits (1-24 hours)
 - **Data quality**: Minimum volumes (0.1 MW), reasonable price increments
 - **Temporal constraints**: Gate closure deadlines, delivery periods within auction day
@@ -383,6 +384,74 @@ print(f"Linked block orders: {len(submission.linked_block_orders)}")
 print(f"Exclusive groups:    {len(submission.exclusive_group_orders)}")
 ```
 
+### Submitting to EXAA
+
+The `exaa` module converts your bids into EXAA Trading API order submission payloads.
+EXAA groups bids by trade account. You supply an `account_id` string and a `ProductIdResolver`
+callable to map MTU intervals to EXAA product IDs.
+
+Unlike Nord Pool, EXAA's volume sign convention is **positive = buy, negative = sell**.
+Linked block bids and exclusive groups are not supported by EXAA and will raise `ValueError`.
+
+#### Hourly and 15-minute bids from an OrderBook
+
+```python
+from nexa_bidkit.exaa import (
+    order_book_to_exaa,
+    standard_hourly_product_id,
+    ExaaOrderType,
+)
+from nexa_bidkit import create_order_book, add_bids
+
+book = create_order_book()
+book = add_bids(book, [must_run, peak_bid])
+
+# Use standard product ID helpers, or supply your own resolver
+# from the auction's products API response.
+payload = order_book_to_exaa(
+    book,
+    account_id="APTAP1",
+    product_id_resolver=standard_hourly_product_id,
+    order_type=ExaaOrderType.STEP,
+)
+
+# Serialise to JSON for the EXAA API (uses camelCase aliases)
+print(payload.model_dump(by_alias=True))
+# {
+#   "units": {"price": "EUR", "volume": "MWh/h"},
+#   "orders": [{
+#     "accountID": "APTAP1",
+#     "hourlyProducts": {"typeOfOrder": "STEP", "products": [...]},
+#     ...
+#   }]
+# }
+```
+
+#### Block bids
+
+```python
+from nexa_bidkit.exaa import order_book_to_exaa, standard_hourly_product_id
+
+def my_block_resolver(period):
+    # Map delivery periods to EXAA block product IDs from the auction response
+    return "bEXAbase (01-24)"
+
+payload = order_book_to_exaa(
+    book,
+    account_id="APTAP1",
+    product_id_resolver=standard_hourly_product_id,
+    block_product_resolver=my_block_resolver,
+)
+```
+
+The `exaa` module supports:
+
+- **Hourly products**: `SimpleBid` with `MTUDuration.HOURLY` → `hourlyProducts`
+- **15-minute products**: `SimpleBid` with `MTUDuration.QUARTER_HOURLY` → `15minProducts`
+- **Block products**: `BlockBid` (indivisible bids map to `fillOrKill=true`) → `blockProducts`
+- **ORDER types**: `STEP` (default) or `LINEAR` interpolation
+- **Market orders**: `PriceVolumePair(price="M", volume=100)` for market orders
+
 ## Examples
 
 The `examples/` directory contains Jupyter notebooks covering real-world European power market
@@ -503,7 +572,7 @@ gh pr create --title "chore: bump version to 1.0.0b1" --body "Version bump for b
 #    - Tag: v1.0.0b1  (target: main)
 #    - Check "This is a pre-release"
 #    - Publish release
-#    - Delete the chore branchs
+#    - Delete the chore branches
 ```
 
 ### Publishing a stable release
@@ -526,7 +595,7 @@ gh pr create --title "chore: bump version to 1.0.0" --body "Version bump for sta
 #    - Tag: v1.0.0  (target: main)
 #    - Do NOT check "This is a pre-release"
 #    - Publish release
-#    - Delete the chore branchs
+#    - Delete the chore branches
 ```
 
 ### What happens next
